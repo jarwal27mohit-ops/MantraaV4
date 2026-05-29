@@ -106,6 +106,21 @@ export default function App() {
   var [calcR, setCalcR] = useState(function () { return loadLocal("calcR", 12); });
   var [calcY, setCalcY] = useState(function () { return loadLocal("calcY", 15); });
   var [calcSIP, setCalcSIP] = useState(function () { return loadLocal("calcSIP", 5); });
+  // SWP State
+  var [swpCorpus, setSwpCorpus] = useState(function () { return loadLocal("swpCorpus", 100); });
+  var [swpWithdraw, setSwpWithdraw] = useState(function () { return loadLocal("swpWithdraw", 50); });
+  var [swpReturn, setSwpReturn] = useState(function () { return loadLocal("swpReturn", 8); });
+  var [swpInflation, setSwpInflation] = useState(function () { return loadLocal("swpInflation", 6); });
+  // FIRE State
+  var [fireInvest, setFireInvest] = useState(function () { return loadLocal("fireInvest", 70); });
+  var [fireAge, setFireAge] = useState(function () { return loadLocal("fireAge", 26); });
+  var [fireRetireAge, setFireRetireAge] = useState(function () { return loadLocal("fireRetireAge", 50); });
+  var [fireExpense, setFireExpense] = useState(function () { return loadLocal("fireExpense", 1.75); });
+  var [fireGrowth, setFireGrowth] = useState(function () { return loadLocal("fireGrowth", 12); });
+  var [fireSwpRet, setFireSwpRet] = useState(function () { return loadLocal("fireSwpRet", 8); });
+  var [fireInflation, setFireInflation] = useState(function () { return loadLocal("fireInflation", 6); });
+  var [fireSIP, setFireSIP] = useState(function () { return loadLocal("fireSIP", 0); });
+  var [fireSipGrowth, setFireSipGrowth] = useState(function () { return loadLocal("fireSipGrowth", 10); });
   var [dailyBrief, setDailyBrief] = useState(function () { return loadLocal("dailyBrief", null); });
   var [briefLoading, setBriefLoading] = useState(false);
   var [doneItems, setDoneItems] = useState(function () { return loadLocal("doneItems", []); });
@@ -122,6 +137,24 @@ export default function App() {
   var calcTotalFV = calcLumpFV + calcSipFV; var calcTotalInvested = calcPrincipal + calcSIPRs * 12 * calcY; var calcGain = calcTotalFV - calcTotalInvested;
   function goalFV(g) { var l = g.inv * Math.pow(1.12, g.yrs); var s = g.sipK * 1000; var sf = s > 0 ? s * ((Math.pow(1 + 0.12 / 12, g.yrs * 12) - 1) / (0.12 / 12)) * (1 + 0.12 / 12) : 0; return l + sf; }
 
+  // SWP Calculation
+  var swpCorpusRs = swpCorpus * 100000; var swpWithdrawRs = swpWithdraw * 1000;
+  var swpMonths = 0; var swpBal = swpCorpusRs; var swpWd = swpWithdrawRs; var swpMR = swpReturn / 100 / 12; var swpMI = swpInflation / 100 / 12;
+  while (swpBal > 0 && swpMonths < 1200) { swpBal = swpBal * (1 + swpMR) - swpWd; swpWd *= (1 + swpMI); swpMonths++; }
+  var swpYears = swpMonths >= 1200 ? Infinity : swpMonths / 12; var swpForever = !isFinite(swpYears);
+  function fmtYrs(m) { if (!isFinite(m) || m > 1200) return "\u221e Forever"; var y = Math.floor(m / 12); var mo = m % 12; return mo ? y + "y " + mo + "m" : y + " years"; }
+
+  // FIRE Calculation
+  var fireYears = Math.max(1, fireRetireAge - fireAge);
+  var fireCorpus = fireInvest * 1e5 * Math.pow(1 + fireGrowth / 100, fireYears);
+  if (fireSIP > 0) { var fSip = fireSIP * 1e5; var fMR = fireGrowth / 100 / 12; for (var fy = 0; fy < fireYears; fy++) { for (var fm = 0; fm < 12; fm++) { var fML = (fireYears - fy) * 12 - fm; fireCorpus += fSip * Math.pow(1 + fMR, fML); } fSip *= (1 + fireSipGrowth / 100); } }
+  var fireMonthlyAtRetire = fireExpense * 1e5 * Math.pow(1 + fireInflation / 100, fireYears);
+  var fireBal = fireCorpus; var fireMonths = 0; var fireWd = fireMonthlyAtRetire; var fireMR2 = fireSwpRet / 100 / 12; var fireMI2 = fireInflation / 100 / 12;
+  var fireChart = [{ age: fireRetireAge, bal: fireCorpus / 1e7 }]; var fireYr = 0;
+  while (fireBal > 0 && fireMonths < 1200) { fireBal = fireBal * (1 + fireMR2) - fireWd; fireWd *= (1 + fireMI2); fireMonths++; if (fireMonths % 12 === 0) { fireYr++; fireChart.push({ age: fireRetireAge + fireYr, bal: Math.max(0, fireBal / 1e7) }); if (fireBal <= 0) break; } }
+  var fireForever = fireBal > 0; var fireAgeOut = fireForever ? Infinity : fireRetireAge + fireMonths / 12;
+  var fireRealGap = fireSwpRet - fireInflation;
+
   // ── EFFECTS ──
   useEffect(function () {
     if (!document.getElementById("mc-sty")) { var el = document.createElement("style"); el.id = "mc-sty"; el.textContent = STYLES; document.head.appendChild(el); }
@@ -137,6 +170,19 @@ export default function App() {
   useEffect(function () { saveLocal("calcR", calcR); }, [calcR]);
   useEffect(function () { saveLocal("calcY", calcY); }, [calcY]);
   useEffect(function () { saveLocal("calcSIP", calcSIP); }, [calcSIP]);
+  useEffect(function () { saveLocal("swpCorpus", swpCorpus); }, [swpCorpus]);
+  useEffect(function () { saveLocal("swpWithdraw", swpWithdraw); }, [swpWithdraw]);
+  useEffect(function () { saveLocal("swpReturn", swpReturn); }, [swpReturn]);
+  useEffect(function () { saveLocal("swpInflation", swpInflation); }, [swpInflation]);
+  useEffect(function () { saveLocal("fireInvest", fireInvest); }, [fireInvest]);
+  useEffect(function () { saveLocal("fireAge", fireAge); }, [fireAge]);
+  useEffect(function () { saveLocal("fireRetireAge", fireRetireAge); }, [fireRetireAge]);
+  useEffect(function () { saveLocal("fireExpense", fireExpense); }, [fireExpense]);
+  useEffect(function () { saveLocal("fireGrowth", fireGrowth); }, [fireGrowth]);
+  useEffect(function () { saveLocal("fireSwpRet", fireSwpRet); }, [fireSwpRet]);
+  useEffect(function () { saveLocal("fireInflation", fireInflation); }, [fireInflation]);
+  useEffect(function () { saveLocal("fireSIP", fireSIP); }, [fireSIP]);
+  useEffect(function () { saveLocal("fireSipGrowth", fireSipGrowth); }, [fireSipGrowth]);
   useEffect(function () { saveLocal("groq_key", groqKey); }, [groqKey]);
 
   // Daily briefing on load
@@ -245,6 +291,61 @@ export default function App() {
           <Card><Label>{"\ud83d\udcca"} Compound Calculator</Label><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}><div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Lumpsum ({"\u20b9"}L)</div><input type="range" min={0} max={100} value={calcP} onChange={function (e) { setCalcP(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{fmtINR(calcPrincipal)}</div></div><div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>SIP ({"\u20b9"}K/mo)</div><input type="range" min={0} max={100} value={calcSIP} onChange={function (e) { setCalcSIP(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{"\u20b9"}{calcSIP}K/mo</div></div><div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Return (%)</div><input type="range" min={6} max={20} value={calcR} onChange={function (e) { setCalcR(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{calcR}%</div></div><div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Years</div><input type="range" min={1} max={40} value={calcY} onChange={function (e) { setCalcY(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{calcY}yr</div></div></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}><div style={{ background: C.hi, borderRadius: 10, padding: 12, textAlign: "center" }}><div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Invested</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, color: C.text }}>{fmtINR(calcTotalInvested)}</div></div><div style={{ background: C.hi, borderRadius: 10, padding: 12, textAlign: "center" }}><div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Gains</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, color: C.green }}>{fmtINR(calcGain)}</div></div><div style={{ background: C.green + "15", borderRadius: 10, padding: 12, textAlign: "center", border: "1px solid " + C.green + "33" }}><div style={{ fontSize: 11, color: C.green, marginBottom: 4 }}>Total</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, color: C.green, fontWeight: 700 }}>{fmtINR(calcTotalFV)}</div></div></div>
             <div style={{ fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center" }}>{fmtINR(calcTotalInvested)} {"\u2192"} {fmtINR(calcTotalFV)} in {calcY}yr at {calcR}%{calcGain > calcTotalInvested && <span style={{ color: C.green }}> {"\ud83d\udd25"} {(calcTotalFV / calcTotalInvested).toFixed(1)}x</span>}</div>
+          </Card>
+
+          {/* SWP Calculator */}
+          <Card style={{ marginTop: 14 }}><Label color={C.cyan}>{"\ud83d\udcb8"} SWP Calculator</Label>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>How long will your corpus last with monthly withdrawals?</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+              <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Corpus ({"\u20b9"}L)</div><input type="range" min={10} max={1000} step={10} value={swpCorpus} onChange={function (e) { setSwpCorpus(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{fmtINR(swpCorpusRs)}</div></div>
+              <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Withdraw ({"\u20b9"}K/mo)</div><input type="range" min={5} max={500} step={5} value={swpWithdraw} onChange={function (e) { setSwpWithdraw(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{"\u20b9"}{swpWithdraw}K/mo</div></div>
+              <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Return (%)</div><input type="range" min={4} max={15} step={0.5} value={swpReturn} onChange={function (e) { setSwpReturn(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{swpReturn}%</div></div>
+              <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Inflation (%)</div><input type="range" min={2} max={12} step={0.5} value={swpInflation} onChange={function (e) { setSwpInflation(+e.target.value); }} /><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text, marginTop: 4 }}>{swpInflation}%</div></div>
+            </div>
+            <div style={{ background: swpForever ? C.green + "12" : swpYears > 30 ? C.cyan + "12" : swpYears > 15 ? C.amber + "12" : C.red + "12", border: "1px solid " + (swpForever ? C.green : swpYears > 30 ? C.cyan : swpYears > 15 ? C.amber : C.red) + "44", borderRadius: 14, padding: "16px 18px", textAlign: "center" }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.muted, letterSpacing: 2, marginBottom: 6 }}>CORPUS SURVIVES</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 28, fontWeight: 800, color: swpForever ? C.green : swpYears > 30 ? C.cyan : swpYears > 15 ? C.amber : C.red }}>{fmtYrs(swpMonths)}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{swpForever ? "Corpus outlasts all withdrawals \ud83c\udf89" : "Withdrawing " + fmtINR(swpWithdrawRs) + "/mo from " + fmtINR(swpCorpusRs)}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
+              <div style={{ background: C.hi, borderRadius: 10, padding: 10, textAlign: "center" }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Monthly</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, color: C.cyan }}>{fmtINR(swpWithdrawRs)}</div></div>
+              <div style={{ background: C.hi, borderRadius: 10, padding: 10, textAlign: "center" }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Annual</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, color: C.cyan }}>{fmtINR(swpWithdrawRs * 12)}</div></div>
+              <div style={{ background: C.hi, borderRadius: 10, padding: 10, textAlign: "center" }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Real Gap</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, color: (swpReturn - swpInflation) >= 2 ? C.green : (swpReturn - swpInflation) >= 0 ? C.amber : C.red }}>{(swpReturn - swpInflation).toFixed(1)}%</div></div>
+            </div>
+          </Card>
+
+          {/* FIRE Calculator */}
+          <Card borderColor={C.amber + "44"} style={{ marginTop: 14, background: C.amber + "05" }}><Label color={C.amber}>{"\ud83d\udd25"} FIRE Calculator</Label>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>Financial Independence, Retire Early — when can you stop working?</div>
+            {/* FIRE Result Banner */}
+            <div style={{ background: fireForever ? C.green + "12" : fireMonths > 600 ? C.cyan + "12" : fireMonths > 240 ? C.amber + "12" : C.red + "12", border: "1px solid " + (fireForever ? C.green : fireMonths > 600 ? C.cyan : fireMonths > 240 ? C.amber : C.red) + "55", borderRadius: 14, padding: "18px 22px", textAlign: "center", marginBottom: 16 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.muted, letterSpacing: 2, marginBottom: 6 }}>CORPUS SURVIVES FOR</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 34, fontWeight: 800, color: fireForever ? C.green : fireMonths > 600 ? C.cyan : fireMonths > 240 ? C.amber : C.red }}>{fmtYrs(fireMonths)}</div>
+              {fireForever ? <div style={{ fontSize: 12, color: C.green, marginTop: 4 }}>Corpus outlasts all withdrawals {"\ud83c\udf89"}</div> : <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Runs out around age <strong style={{ color: C.text }}>{Math.round(fireAgeOut)}</strong></div>}
+            </div>
+            {/* FIRE Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <div style={{ background: C.blue + "15", border: "1px solid " + C.blue + "33", borderRadius: 12, padding: "12px 14px" }}><div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 4 }}>CORPUS AT RETIREMENT</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, fontWeight: 800, color: C.blue }}>{fmtINR(fireCorpus)}</div><div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>age {fireRetireAge}</div></div>
+              <div style={{ background: C.hi, border: "1px solid " + C.border, borderRadius: 12, padding: "12px 14px" }}><div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 4 }}>MONTHLY SWP</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, fontWeight: 800, color: C.text }}>{fmtINR(fireMonthlyAtRetire)}</div><div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>inflation-adjusted</div></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <div style={{ background: C.hi, borderRadius: 12, padding: "12px 14px" }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>REAL RETURN GAP</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: fireRealGap >= 2 ? C.green : fireRealGap >= 0 ? C.amber : C.red }}>{fireRealGap.toFixed(1)}% {fireRealGap >= 2 ? "\u2705" : fireRealGap >= 0 ? "\u26a0\ufe0f" : "\u274c"}</div></div>
+              <div style={{ background: C.hi, borderRadius: 12, padding: "12px 14px" }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>ACCUMULATION</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: C.text }}>{fireYears} years</div><div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>age {fireAge} {"\u2192"} {fireRetireAge}</div></div>
+            </div>
+            {/* FIRE Chart */}
+            {fireChart.length > 2 && <div style={{ background: C.hi, borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}><div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 8 }}>BALANCE TRAJECTORY ({"\u20b9"} Cr)</div><svg width="100%" viewBox="0 0 300 72" style={{ display: "block" }}><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.blue} stopOpacity="0.3" /><stop offset="100%" stopColor={C.blue} stopOpacity="0" /></linearGradient></defs>{(function(){ var maxB=Math.max.apply(null,fireChart.map(function(d){return d.bal}))||0.1; var pts=fireChart.map(function(d,i){var x=fireChart.length>1?(i/(fireChart.length-1))*300:0;var y=72-(d.bal/maxB)*72*0.88;return x+","+y}).join(" "); return<><polyline points={pts} fill="none" stroke={C.blue} strokeWidth="2" strokeLinejoin="round"/><polygon points={"0,72 "+pts+" 300,72"} fill="url(#fg)"/></>})()}</svg><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.muted, fontFamily: "'DM Mono',monospace", marginTop: 2 }}><span>Age {fireRetireAge}</span><span>Age {fireChart[fireChart.length - 1].age}</span></div></div>}
+            {/* FIRE Inputs */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Lump Sum ({"\u20b9"}L)</div><input type="range" min={1} max={500} step={5} value={fireInvest} onChange={function(e){setFireInvest(+e.target.value)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fmtINR(fireInvest * 1e5)}</div></div>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>SIP ({"\u20b9"}L/mo)</div><input type="range" min={0} max={10} step={0.1} value={fireSIP} onChange={function(e){setFireSIP(+e.target.value)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fireSIP > 0 ? fmtINR(fireSIP * 1e5) + "/mo" : "None"}</div></div>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Current Age</div><input type="range" min={18} max={55} value={fireAge} onChange={function(e){var v=+e.target.value;setFireAge(v);if(v>=fireRetireAge)setFireRetireAge(v+1)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fireAge} yrs</div></div>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Retire Age</div><input type="range" min={fireAge+1} max={70} value={fireRetireAge} onChange={function(e){setFireRetireAge(+e.target.value)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fireRetireAge} yrs</div></div>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Monthly Expense Today</div><input type="range" min={0.25} max={10} step={0.25} value={fireExpense} onChange={function(e){setFireExpense(+e.target.value)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fmtINR(fireExpense * 1e5)}/mo</div></div>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Growth Rate (%)</div><input type="range" min={6} max={20} step={0.5} value={fireGrowth} onChange={function(e){setFireGrowth(+e.target.value)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fireGrowth}%</div></div>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>SWP Return (%)</div><input type="range" min={4} max={15} step={0.5} value={fireSwpRet} onChange={function(e){setFireSwpRet(+e.target.value)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fireSwpRet}%</div></div>
+              <div><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Inflation (%)</div><input type="range" min={3} max={12} step={0.5} value={fireInflation} onChange={function(e){setFireInflation(+e.target.value)}}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fireInflation}%</div></div>
+            </div>
+            {fireSIP > 0 && <div style={{ marginTop: 14 }}><div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>SIP Step-up (%/yr)</div><input type="range" min={0} max={25} value={fireSipGrowth} onChange={function(e){setFireSipGrowth(+e.target.value)}} style={{ width: "100%" }}/><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: C.text, marginTop: 4 }}>{fireSipGrowth}% annual increase</div></div>}
           </Card>
         </div>}
 
